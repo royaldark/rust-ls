@@ -1,23 +1,23 @@
 use std::fs;
 use std::io;
 
-fn sort_by_basename(entries: Vec<fs::DirEntry>) -> Vec<String> {
-    let mut dest: Vec<String> = Vec::with_capacity(entries.len());
+fn sort_by_basename(entries: &mut Vec<fs::DirEntry>) -> () {
+    entries.sort_by_key(|a| a.path().into_os_string().into_string().unwrap());
+}
 
-    for entry in entries {
-        let file_name = entry.file_name().into_string().unwrap();
-        dest.push(file_name);
-    }
-
-    dest.sort();
-    dest
+fn is_hidden(entry: &fs::DirEntry) -> bool {
+    entry.file_name().into_string().unwrap().starts_with(".")
 }
 
 fn ls_print_directory_conents(dir: &str) -> io::Result<&str> {
-    let entries = fs::read_dir(dir)?.map(|entry| entry.unwrap()).collect();
+    let mut entries: Vec<fs::DirEntry> = fs::read_dir(dir)?.map(|entry| entry.unwrap()).collect();
+    entries.retain(|ref x| !is_hidden(&x));
+    sort_by_basename(&mut entries);
 
-    for file in sort_by_basename(entries) {
-        println!("{}", file);
+    for file in entries {
+        println!("{} {}",
+            file.metadata().unwrap().len(),
+            file.file_name().into_string().unwrap());
     }
 
     Ok("got it")
