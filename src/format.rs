@@ -1,5 +1,6 @@
 use std::fs;
 
+#[derive(Debug)]
 pub enum Format {
     Short,
     Long
