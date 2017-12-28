@@ -17,11 +17,9 @@ fn ls_print_directory_conents(dir: &str, opts: cli::LsOptions) -> io::Result<u8>
     entries.retain(|ref x| !is_hidden(&x));
     sort_by_basename(&mut entries);
 
-    for file in entries {
-        match opts.output_format {
-            format::OutputFormat::Long => println!("{}", format::long_form(&file, &opts)),
-            format::OutputFormat::Short => println!("{}", format::short_form(&file, &opts)),
-        }
+    match opts.output_format {
+        format::OutputFormat::Long => format::long_form(&entries, &opts),
+        format::OutputFormat::Short => format::short_form(&entries, &opts),
     }
 
     Ok(0)

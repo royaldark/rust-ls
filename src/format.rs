@@ -5,59 +5,9 @@ use std::fs;
 use std::u32;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 
-use self::chrono::{DateTime, NaiveDateTime, Utc};
+use self::chrono::{DateTime, NaiveDateTime, Local, TimeZone};
 
 use cli;
-
-
-/*
-total 20
--rw-r--r-- 1 joe joe 5640 Dec 27 23:56 Cargo.lock
--rw-r--r-- 1 joe joe  115 Dec 27 23:56 Cargo.toml
-drwxr-xr-x 2 joe joe 4096 Dec 28 00:09 src
-drwxr-xr-x 4 joe joe 4096 Dec 28 00:06 target
-
-
-n nbit($number, $n) { return ($number >> $n-1) & 1;} 
-
-total int = Sum of (physical_blocks_in_use) * physical_block_size/ls_block_size) for each file.
-
-Where:
-
-    ls_block_size is an arbitrary environment variable (normally 512 or 1024 bytes) which is freely modifiable with the --block-size=<int> flag on ls, the POSIXLY_CORRECT=1 GNU environment variable (to get 512-byte units), or the -k flag to force 1kB units.
-    physical_block_size is the OS dependent value of an internal block interface, which may or may not be connected to the underlying hardware. This value is normally 512b or 1k, but is completely dependent on OS. It can be revealed through the %B value on stat or fstat. Note that this value is (almost always) unrelated to the number of physical blocks on a modern storage device.
-
-len = (end_pos - start_pos)
-
-
-     ‘c’
-          character special file
-     ‘C’
-          high performance (“contiguous data”) file
-     ‘d’
-          directory
-     ‘D’
-          door (Solaris 2.5 and up)
-     ‘l’
-          symbolic link
-     ‘M’
-          off-line (“migrated”) file (Cray DMF)
-     ‘n’
-          network special file (HP-UX)
-     ‘P’
-          port (Solaris 10 and up)
-     ‘?’
-          some other file type
-
-
- In addition to the name of each file, print the file type, file
-     mode bits, number of hard links, owner name, group name, size, and
-     timestamp (*note Formatting file timestamps::), normally the
-     modification time.  Print question marks for information that
-     cannot be determined.
-
-
-*/
 
 #[derive(Debug)]
 pub enum OutputFormat {
@@ -179,24 +129,78 @@ fn group_name(meta: &fs::Metadata) -> String {
 fn timestamp(meta: &fs::Metadata) -> String {
     let format = "%b %d %H:%M";
     let ndt = NaiveDateTime::from_timestamp(meta.mtime(), 0 as u32);
-    let dt: DateTime<Utc> = DateTime::from_utc(ndt, Utc);
+    let dt: DateTime<Local> = Local::from_utc_datetime(&Local, &ndt);
 
     dt.format(format).to_string()
 }
 
-pub fn long_form(file: &fs::DirEntry, opts: &cli::LsOptions) -> String {
-    let metadata = file.metadata().unwrap();
-
-    format!("{} {} {} {} {} {} {}",
-            permissions_string(&metadata),
-            metadata.nlink(),
-            user_name(&metadata),
-            group_name(&metadata),
-            size_string(metadata.len(), &opts),
-            timestamp(&metadata),
-            file.file_name().into_string().unwrap())
+struct FormatEntry {
+    permissions: String,
+    nlinks: String,
+    user: String,
+    group: String,
+    size: String,
+    timestamp: String,
+    file_name: String
 }
 
-pub fn short_form(file: &fs::DirEntry, _opts: &cli::LsOptions) -> String {
-    format!("{}", file.file_name().into_string().unwrap())
+fn to_format_entry(file: &fs::DirEntry, opts: &cli::LsOptions) -> FormatEntry {
+    let metadata = file.metadata().unwrap();
+
+    FormatEntry {
+        permissions: permissions_string(&metadata),
+        nlinks: format!("{}", metadata.nlink()),
+        user: user_name(&metadata),
+        group: group_name(&metadata),
+        size: size_string(metadata.len(), &opts),
+        timestamp: timestamp(&metadata),
+        file_name: file.file_name().into_string().unwrap()
+    }
+}
+
+fn to_format_entries(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> Vec<FormatEntry> {
+    let mut acc: Vec<FormatEntry> = Vec::with_capacity(entries.len());
+
+    for entry in entries {
+        acc.push(to_format_entry(&entry, opts));
+    }
+
+    acc
+}
+
+fn max_len<F>(entries: &Vec<FormatEntry>, f: F) -> usize 
+    where F: Fn(&FormatEntry) -> usize {
+    let mut max = 0 as usize;
+
+    for entry in entries {
+        let value: usize = f(&entry);
+        if value > max {
+            max = value;
+        }
+    }
+    
+    max
+}
+
+pub fn long_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
+    let fmt_entries = to_format_entries(entries, opts);
+    let size_width = max_len(&fmt_entries, |x| x.size.len());
+
+    for file in fmt_entries {
+        println!("{} {} {} {} {:>swidth$} {} {}",
+                file.permissions,
+                file.nlinks,
+                file.user,
+                file.group,
+                file.size,
+                file.timestamp,
+                file.file_name,
+                swidth = size_width);
+    }
+}
+
+pub fn short_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
+    for file in to_format_entries(entries, opts) {
+        println!("{}", file.file_name);
+    }
 }
