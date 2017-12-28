@@ -95,13 +95,42 @@ fn permissions_string(meta: &fs::Metadata) -> String {
     acc
 }
 
-fn human_size_string(len: u64) -> String {
-    if len < 1024 {
-        format!("{}", len)
-    } else if len < 1024 * 1024 {
-        format!("{:.1}K", len as f64 / 1000.0)
+#[derive(Copy, Clone)]
+enum SizeUnit {
+    K = 1024,
+    M = 1024 * 1024,
+    G = 1024 * 1024 * 1024,
+    T = 1024 * 1024 * 1024 * 1024,
+    P = 1024 * 1024 * 1024 * 1024 * 1024
+}
+
+fn human_size_string_for(len: u64, unit: SizeUnit, label: &str) -> String {
+    let precision = if len < 10 * unit as u64 { 1 } else { 0 };
+    let rounded = if len < 10 * unit as u64 {
+       (len as f64 / unit as u64 as f64 * 10_f64).ceil() / 10_f64
     } else {
-        format!("{:.1}M", len as f64 / 1000.0 / 1000.0)
+        (len as f64 / unit as u64 as f64).ceil()
+    };
+
+    format!("{:.precision$}{}",
+        rounded,
+        label,
+        precision = precision)
+}
+
+fn human_size_string(len: u64) -> String {
+    if len < SizeUnit::K as u64 {
+        format!("{}", len)
+    } else if len < SizeUnit::M as u64 {
+        human_size_string_for(len, SizeUnit::K, "K")
+    } else if len < SizeUnit::G as u64 {
+        human_size_string_for(len, SizeUnit::M, "M")
+    } else if len < SizeUnit::T as u64 {
+        human_size_string_for(len, SizeUnit::G, "G")
+    } else if len < SizeUnit::P as u64 {
+        human_size_string_for(len, SizeUnit::T, "T")
+    } else {
+        human_size_string_for(len, SizeUnit::P, "P")
     }
 }
 
