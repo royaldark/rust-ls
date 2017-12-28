@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fs;
 use std::io;
 
@@ -12,7 +13,7 @@ fn is_hidden(entry: &fs::DirEntry) -> bool {
     entry.file_name().into_string().unwrap().starts_with(".")
 }
 
-fn ls_print_directory_conents(dir: &str, opts: cli::LsOptions) -> io::Result<u8> {
+fn ls_print_directory_contents(dir: &str, opts: cli::LsOptions) -> io::Result<u8> {
     let mut entries: Vec<fs::DirEntry> = fs::read_dir(dir)?.map(|entry| entry.unwrap()).collect();
     entries.retain(|ref x| !is_hidden(&x));
     sort_by_basename(&mut entries);
@@ -27,14 +28,17 @@ fn ls_print_directory_conents(dir: &str, opts: cli::LsOptions) -> io::Result<u8>
 
 fn ls_print_input(opts: cli::LsOptions) -> io::Result<u8> {
     let path = opts.paths[0].clone();
-    let meta = fs::metadata(&path)?;
 
-    if meta.is_dir() {
-        ls_print_directory_conents(&path, opts)
-    } else if meta.is_file() {
-        Ok(0)
-    } else {
-        Ok(0) 
+    match fs::metadata(&path) {
+        Ok(meta) =>
+            if meta.is_dir() {
+                ls_print_directory_contents(&path, opts)
+            } else if meta.is_file() {
+                Ok(0)
+            } else {
+                Ok(0) 
+            },
+        Err(e) => Err(io::Error::new(io::ErrorKind::Other, format!("cannot access '{}': {}", path, e.description())))
     }
 }
 
@@ -45,6 +49,6 @@ fn main() {
 
     match ls_print_input(opts) {
         Ok(_) => return,
-        Err(e) => println!("ERROR: {}", e),
+        Err(e) => println!("ls: {}", e),
     }
 }
