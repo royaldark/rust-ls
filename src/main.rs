@@ -18,9 +18,9 @@ fn ls_print_directory_conents(dir: &str, opts: cli::LsOptions) -> io::Result<u8>
     sort_by_basename(&mut entries);
 
     for file in entries {
-        match opts.format {
-            format::Format::Long => println!("{}", format::long_form(&file)),
-            format::Format::Short => println!("{}", format::short_form(&file)),
+        match opts.output_format {
+            format::OutputFormat::Long => println!("{}", format::long_form(&file, &opts)),
+            format::OutputFormat::Short => println!("{}", format::short_form(&file, &opts)),
         }
     }
 

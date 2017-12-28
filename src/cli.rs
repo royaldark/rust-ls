@@ -6,7 +6,8 @@ use format;
 #[derive(Debug)]
 pub struct LsOptions {
     pub paths: Vec<String>,
-    pub format: format::Format
+    pub output_format: format::OutputFormat,
+    pub size_format: format::SizeFormat
 }
 
 fn parse_opts<'a>() -> ArgMatches<'a> {
@@ -16,6 +17,9 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
         .about("you know, it's ls")
         .arg(Arg::with_name("LONG")
             .short("l")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("HUMAN_SIZES")
+            .short("h")
             .help("Sets a custom config file"))
         .arg(Arg::with_name("PATHS")
             .help("Sets the input file to use")
@@ -29,10 +33,15 @@ pub fn parse_cli() -> LsOptions {
 
     LsOptions {
         paths: matches.values_of("PATHS").unwrap_or_default().map(String::from).collect(),
-        format: if matches.is_present("LONG") {
-            format::Format::Long
-         } else {
-            format::Format::Short
-         }
+        output_format: if matches.is_present("LONG") {
+            format::OutputFormat::Long
+        } else {
+            format::OutputFormat::Short
+        },
+        size_format: if matches.is_present("HUMAN_SIZES") {
+            format::SizeFormat::Human
+        } else {
+            format::SizeFormat::Machine
+        }
     }
 }
