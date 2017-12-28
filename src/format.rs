@@ -1,10 +1,13 @@
-extern crate users;
+extern crate colored;
 extern crate chrono;
+extern crate users;
+extern crate libc;
 
 use std::fs;
 use std::u32;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 
+use self::colored::*;
 use self::chrono::{DateTime, NaiveDateTime, Local, TimeZone};
 
 use cli;
@@ -19,6 +22,13 @@ pub enum OutputFormat {
 pub enum SizeFormat {
     Machine,
     Human
+}
+
+#[derive(Debug)]
+pub enum ColorOption {
+    Always,
+    Auto,
+    Never
 }
 
 fn extract_bits_from_right(value: u32, start_pos: u32, end_pos: u32) -> u32 {
@@ -149,7 +159,7 @@ fn user_name(meta: &fs::Metadata) -> String {
 }
 
 fn group_name(meta: &fs::Metadata) -> String {
-    match users::get_group_by_gid(meta.uid()) {
+    match users::get_group_by_gid(meta.gid()) {
         Some(x) => x.name().to_owned(),
         None => "?".to_owned()
     }
@@ -170,7 +180,8 @@ struct FormatEntry {
     group: String,
     size: String,
     timestamp: String,
-    file_name: String
+    file_name: String,
+    file_type: String
 }
 
 fn to_format_entry(file: &fs::DirEntry, opts: &cli::LsOptions) -> FormatEntry {
@@ -183,7 +194,8 @@ fn to_format_entry(file: &fs::DirEntry, opts: &cli::LsOptions) -> FormatEntry {
         group: group_name(&metadata),
         size: size_string(metadata.len(), &opts),
         timestamp: timestamp(&metadata),
-        file_name: file.file_name().into_string().unwrap()
+        file_name: file.file_name().into_string().unwrap(),
+        file_type: file_type_string(metadata.file_type())
     }
 }
 
@@ -211,25 +223,57 @@ fn max_len<F>(entries: &Vec<FormatEntry>, f: F) -> usize
     max
 }
 
+fn is_tty() -> bool {
+    (unsafe { libc::isatty(libc::STDOUT_FILENO as i32) } != 0)
+}
+
+fn should_color(color: &ColorOption) -> bool {
+    match color {
+        &ColorOption::Always => true,
+        &ColorOption::Never => false,
+        &ColorOption::Auto => is_tty()
+    }
+}
+
+fn color_file_name(file_name: String, file_type: String, color: &ColorOption) -> String {
+    if should_color(color) {
+        match file_type.as_str() {
+            "b" | "c" => format!("{}", file_name.yellow().bold().on_black()).to_owned(),
+            "d" => format!("{}", file_name.blue().bold()).to_owned(),
+            _ => file_name
+        }
+    } else {
+        file_name
+    }
+}
+
 pub fn long_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
     let fmt_entries = to_format_entries(entries, opts);
+    let nlinks_width = max_len(&fmt_entries, |x| x.nlinks.len());
     let size_width = max_len(&fmt_entries, |x| x.size.len());
+    let user_width = max_len(&fmt_entries, |x| x.user.len());
+    let group_width = max_len(&fmt_entries, |x| x.group.len());
+    let timestamp_width = max_len(&fmt_entries, |x| x.timestamp.len());
 
     for file in fmt_entries {
-        println!("{} {} {} {} {:>swidth$} {} {}",
+        println!("{} {:>nwidth$} {:<uwidth$} {:<gwidth$} {:>swidth$} {:<twidth$} {}",
                 file.permissions,
                 file.nlinks,
                 file.user,
                 file.group,
                 file.size,
                 file.timestamp,
-                file.file_name,
-                swidth = size_width);
+                color_file_name(file.file_name, file.file_type, &opts.color),
+                nwidth = nlinks_width,
+                swidth = size_width,
+                uwidth = user_width,
+                gwidth = group_width,
+                twidth = timestamp_width);
     }
 }
 
 pub fn short_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
     for file in to_format_entries(entries, opts) {
-        println!("{}", file.file_name);
+        println!("{}", color_file_name(file.file_name, file.file_type, &opts.color));
     }
 }
