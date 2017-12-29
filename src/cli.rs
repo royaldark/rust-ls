@@ -17,7 +17,8 @@ pub struct LsOptions {
     pub size_format: format::SizeFormat,
     pub color: format::ColorOption,
     pub output_filter: OutputFilter,
-    pub show_dir_headers: bool
+    pub show_dir_headers: bool,
+    pub list_dir_contents: bool
 }
 
 fn parse_opts<'a>() -> ArgMatches<'a> {
@@ -25,17 +26,20 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
         .version("1.0")
         .author("Joe Einertson")
         .about("you know, it's ls")
-        .arg(Arg::with_name("LONG")
-            .short("l")
-            .help("Sets a custom config file"))
-        .arg(Arg::with_name("HUMAN_SIZES")
-            .short("h")
-            .help("Sets a custom config file"))
         .arg(Arg::with_name("ALL")
             .short("a")
             .help("Sets a custom config file"))
         .arg(Arg::with_name("ALMOST_ALL")
             .short("A")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("DIR_NAME_ONLY")
+            .short("d")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("HUMAN_SIZES")
+            .short("h")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("LONG")
+            .short("l")
             .help("Sets a custom config file"))
         .arg(Arg::with_name("COLOR")
             .long("color")
@@ -58,6 +62,7 @@ pub fn parse_cli() -> LsOptions {
     LsOptions {
         paths: paths,
         show_dir_headers: num_paths > 1,
+        list_dir_contents: !matches.is_present("DIR_NAME_ONLY"),
         output_format: if matches.is_present("LONG") {
             format::OutputFormat::Long
         } else {

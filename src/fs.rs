@@ -98,7 +98,11 @@ fn get_input_meta(inputs: &Vec<String>) -> io::Result<Vec<FsEntry>> {
 fn ls_print_paths(entries: Vec<FsEntry>, opts: LsOptions) -> io::Result<u8> {
     for entry in entries {
         if entry.meta.is_dir() {
-            ls_print_directory_contents(entry, &opts)?;
+            if opts.list_dir_contents {
+                ls_print_directory_contents(entry, &opts)?;
+            } else {
+                ls_print_file(entry, &opts)?;
+            }
         } else {
             ls_print_file(entry, &opts)?;
         }
