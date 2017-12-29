@@ -3,12 +3,20 @@ use self::clap::{Arg, ArgMatches, App};
 
 use format;
 
+#[derive(Debug, PartialEq)]
+pub enum OutputFilter {
+    All,
+    AlmostAll,
+    Visible
+}
+
 #[derive(Debug)]
 pub struct LsOptions {
     pub paths: Vec<String>,
     pub output_format: format::OutputFormat,
     pub size_format: format::SizeFormat,
-    pub color: format::ColorOption
+    pub color: format::ColorOption,
+    pub output_filter: OutputFilter
 }
 
 fn parse_opts<'a>() -> ArgMatches<'a> {
@@ -21,6 +29,12 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
             .help("Sets a custom config file"))
         .arg(Arg::with_name("HUMAN_SIZES")
             .short("h")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("ALL")
+            .short("a")
+            .help("Sets a custom config file"))
+        .arg(Arg::with_name("ALMOST_ALL")
+            .short("A")
             .help("Sets a custom config file"))
         .arg(Arg::with_name("COLOR")
             .long("color")
@@ -55,6 +69,13 @@ pub fn parse_cli() -> LsOptions {
             "auto" => format::ColorOption::Auto,
             "never" => format::ColorOption::Never,
             _ => panic!(format!("Invalid color: {}", color))
+        },
+        output_filter: if matches.is_present("ALL") {
+            OutputFilter::All
+        } else if matches.is_present("ALMOST_ALL") {
+            OutputFilter::AlmostAll
+        } else {
+            OutputFilter::Visible
         }
     }
 }

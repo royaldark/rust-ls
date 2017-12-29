@@ -3,7 +3,9 @@ extern crate chrono;
 extern crate users;
 extern crate libc;
 
-use std::fs;
+use std::cmp::{Ord, Ordering};
+use std::fs::{FileType, Metadata};
+use std::path::{PathBuf};
 use std::u32;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 
@@ -11,6 +13,31 @@ use self::colored::*;
 use self::chrono::{DateTime, NaiveDateTime, Local, TimeZone};
 
 use cli;
+
+pub struct FsEntry {
+    pub path: PathBuf,
+    pub meta: Metadata
+}
+
+impl Eq for FsEntry {}
+
+impl Ord for FsEntry {
+    fn cmp(&self, other: &FsEntry) -> Ordering {
+        self.path.cmp(&other.path)
+    }
+}
+
+impl PartialOrd for FsEntry {
+    fn partial_cmp(&self, other: &FsEntry) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for FsEntry {
+    fn eq(&self, other: &FsEntry) -> bool {
+        self.path == other.path
+    }
+}
 
 #[derive(Debug)]
 pub enum OutputFormat {
@@ -31,6 +58,15 @@ pub enum ColorOption {
     Never
 }
 
+#[derive(Copy, Clone)]
+enum SizeUnit {
+    K = 1024,
+    M = 1024 * 1024,
+    G = 1024 * 1024 * 1024,
+    T = 1024 * 1024 * 1024 * 1024,
+    P = 1024 * 1024 * 1024 * 1024 * 1024
+}
+
 fn extract_bits_from_right(value: u32, start_pos: u32, end_pos: u32) -> u32 {
     let mask = (1 << (end_pos - start_pos)) - 1;
     (value >> start_pos) & mask
@@ -39,34 +75,14 @@ fn extract_bits_from_right(value: u32, start_pos: u32, end_pos: u32) -> u32 {
 fn perm_mode_string(value: u32) -> String {
     let mut acc = String::new();
 
-    acc.push_str(
-        if value & 4 == 4 {
-            "r"
-        } else {
-            "-"
-        }
-    );
-
-    acc.push_str(
-        if value & 2 == 2 {
-            "w"
-        } else {
-            "-"
-        }
-    );
-
-    acc.push_str(
-        if value & 1 == 1 {
-            "x"
-        } else {
-            "-"
-        }
-    );
+    acc.push_str(if value & 4 == 4 { "r" } else { "-" });
+    acc.push_str(if value & 2 == 2 { "w" } else { "-" });
+    acc.push_str(if value & 1 == 1 { "x" } else { "-" });
 
     acc
 }
 
-fn file_type_string(file_type: fs::FileType) -> String {
+fn file_type_string(file_type: FileType) -> String {
     String::from(
         if file_type.is_file() {
             "-"
@@ -88,7 +104,7 @@ fn file_type_string(file_type: fs::FileType) -> String {
     )
 }
 
-fn permissions_string(meta: &fs::Metadata) -> String {
+fn permissions_string(meta: &Metadata) -> String {
     let mut acc = String::new();
     let perms = meta.permissions();
     let file_type = meta.file_type();
@@ -103,15 +119,6 @@ fn permissions_string(meta: &fs::Metadata) -> String {
     acc.push_str(&perm_mode_string(wmode));
 
     acc
-}
-
-#[derive(Copy, Clone)]
-enum SizeUnit {
-    K = 1024,
-    M = 1024 * 1024,
-    G = 1024 * 1024 * 1024,
-    T = 1024 * 1024 * 1024 * 1024,
-    P = 1024 * 1024 * 1024 * 1024 * 1024
 }
 
 fn human_size_string_for(len: u64, unit: SizeUnit, label: &str) -> String {
@@ -151,21 +158,21 @@ fn size_string(len: u64, opts: &cli::LsOptions) -> String {
     }
 }
 
-fn user_name(meta: &fs::Metadata) -> String {
+fn user_name(meta: &Metadata) -> String {
     match users::get_user_by_uid(meta.uid()) {
         Some(x) => x.name().to_owned(),
         None => "?".to_owned()
     }
 }
 
-fn group_name(meta: &fs::Metadata) -> String {
+fn group_name(meta: &Metadata) -> String {
     match users::get_group_by_gid(meta.gid()) {
         Some(x) => x.name().to_owned(),
         None => "?".to_owned()
     }
 }
 
-fn timestamp(meta: &fs::Metadata) -> String {
+fn timestamp(meta: &Metadata) -> String {
     let format = "%b %d %H:%M";
     let ndt = NaiveDateTime::from_timestamp(meta.mtime(), 0 as u32);
     let dt: DateTime<Local> = Local::from_utc_datetime(&Local, &ndt);
@@ -184,22 +191,20 @@ struct FormatEntry {
     file_type: String
 }
 
-fn to_format_entry(file: &fs::DirEntry, opts: &cli::LsOptions) -> FormatEntry {
-    let metadata = file.metadata().unwrap();
-
+fn to_format_entry(file: &FsEntry, opts: &cli::LsOptions) -> FormatEntry {
     FormatEntry {
-        permissions: permissions_string(&metadata),
-        nlinks: format!("{}", metadata.nlink()),
-        user: user_name(&metadata),
-        group: group_name(&metadata),
-        size: size_string(metadata.len(), &opts),
-        timestamp: timestamp(&metadata),
-        file_name: file.file_name().into_string().unwrap(),
-        file_type: file_type_string(metadata.file_type())
+        permissions: permissions_string(&file.meta),
+        nlinks: format!("{}", file.meta.nlink()),
+        user: user_name(&file.meta),
+        group: group_name(&file.meta),
+        size: size_string(file.meta.len(), &opts),
+        timestamp: timestamp(&file.meta),
+        file_name: file.path.file_name().unwrap().to_str().unwrap().to_owned(),
+        file_type: file_type_string(file.meta.file_type())
     }
 }
 
-fn to_format_entries(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> Vec<FormatEntry> {
+fn to_format_entries(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> Vec<FormatEntry> {
     let mut acc: Vec<FormatEntry> = Vec::with_capacity(entries.len());
 
     for entry in entries {
@@ -247,7 +252,7 @@ fn color_file_name(file_name: String, file_type: String, color: &ColorOption) ->
     }
 }
 
-pub fn long_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
+pub fn long_form(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     let fmt_entries = to_format_entries(entries, opts);
     let nlinks_width = max_len(&fmt_entries, |x| x.nlinks.len());
     let size_width = max_len(&fmt_entries, |x| x.size.len());
@@ -272,7 +277,7 @@ pub fn long_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
     }
 }
 
-pub fn short_form(entries: &Vec<fs::DirEntry>, opts: &cli::LsOptions) -> () {
+pub fn short_form(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     for file in to_format_entries(entries, opts) {
         println!("{}", color_file_name(file.file_name, file.file_type, &opts.color));
     }
