@@ -252,13 +252,22 @@ fn color_file_name(file_name: String, file_type: String, color: &ColorOption) ->
     }
 }
 
-pub fn long_form(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+fn print_dir_header_if_needed(root: Option<FsEntry>, opts: &cli::LsOptions) -> () {
+    if let Some(root) = root { if opts.show_dir_headers && root.meta.is_dir() {
+            println!("{}:", root.path.to_str().unwrap());
+        }
+    }
+}
+
+pub fn long_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     let fmt_entries = to_format_entries(entries, opts);
     let nlinks_width = max_len(&fmt_entries, |x| x.nlinks.len());
     let size_width = max_len(&fmt_entries, |x| x.size.len());
     let user_width = max_len(&fmt_entries, |x| x.user.len());
     let group_width = max_len(&fmt_entries, |x| x.group.len());
     let timestamp_width = max_len(&fmt_entries, |x| x.timestamp.len());
+
+    print_dir_header_if_needed(root, opts);
 
     for file in fmt_entries {
         println!("{} {:>nwidth$} {:<uwidth$} {:<gwidth$} {:>swidth$} {:<twidth$} {}",
@@ -277,7 +286,9 @@ pub fn long_form(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     }
 }
 
-pub fn short_form(entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+pub fn short_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+    print_dir_header_if_needed(root, opts);
+
     for file in to_format_entries(entries, opts) {
         println!("{}", color_file_name(file.file_name, file.file_type, &opts.color));
     }

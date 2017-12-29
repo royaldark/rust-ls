@@ -16,7 +16,8 @@ pub struct LsOptions {
     pub output_format: format::OutputFormat,
     pub size_format: format::SizeFormat,
     pub color: format::ColorOption,
-    pub output_filter: OutputFilter
+    pub output_filter: OutputFilter,
+    pub show_dir_headers: bool
 }
 
 fn parse_opts<'a>() -> ArgMatches<'a> {
@@ -51,9 +52,12 @@ pub fn parse_cli() -> LsOptions {
     let matches = parse_opts();
 
     let color = matches.value_of("COLOR").unwrap_or_default();
+    let paths: Vec<String> = matches.values_of("PATHS").unwrap_or_default().map(String::from).collect();
+    let num_paths: usize = paths.len();
 
     LsOptions {
-        paths: matches.values_of("PATHS").unwrap_or_default().map(String::from).collect(),
+        paths: paths,
+        show_dir_headers: num_paths > 1,
         output_format: if matches.is_present("LONG") {
             format::OutputFormat::Long
         } else {
