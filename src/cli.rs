@@ -18,7 +18,8 @@ pub struct LsOptions {
     pub color: format::ColorOption,
     pub output_filter: OutputFilter,
     pub show_dir_headers: bool,
-    pub list_dir_contents: bool
+    pub list_dir_contents: bool,
+    pub show_numeric_ids: bool
 }
 
 fn parse_opts<'a>() -> ArgMatches<'a> {
@@ -44,6 +45,9 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
         .arg(Arg::with_name("LONG")
             .short("l")
             .help("Long form output"))
+        .arg(Arg::with_name("NUMERIC_ID_LONG")
+            .short("n")
+            .help("Like -l, but shows numeric UID/GIDs"))
         .arg(Arg::with_name("COLOR")
             .long("color")
             .default_value("always")
@@ -72,11 +76,12 @@ pub fn parse_cli() -> LsOptions {
         list_dir_contents: !matches.is_present("DIR_NAME_ONLY"),
         output_format: if matches.is_present("GROUP_LONG") {
             format::OutputFormat::GroupLong
-        } else if matches.is_present("LONG") {
+        } else if matches.is_present("LONG") || matches.is_present("NUMERIC_ID_LONG") {
             format::OutputFormat::Long
         } else {
             format::OutputFormat::Short
         },
+        show_numeric_ids: matches.is_present("NUMERIC_ID_LONG"),
         size_format: if matches.is_present("SI_SIZES") {
             format::SizeFormat::HumanSI
         } else if matches.is_present("HUMAN_SIZES") {
