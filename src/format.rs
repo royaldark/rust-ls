@@ -41,8 +41,9 @@ impl PartialEq for FsEntry {
 
 #[derive(Debug)]
 pub enum OutputFormat {
-    Short,
-    Long
+    Short,    // Name only
+    Long,     // Permissions, group, owner, size, etc.
+    GroupLong // Like Long, but listing only each file's group, not owner
 }
 
 #[derive(Debug)]
@@ -259,7 +260,7 @@ fn print_dir_header_if_needed(root: Option<FsEntry>, opts: &cli::LsOptions) -> (
     }
 }
 
-pub fn long_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+fn long_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     let fmt_entries = to_format_entries(entries, opts);
     let nlinks_width = max_len(&fmt_entries, |x| x.nlinks.len());
     let size_width = max_len(&fmt_entries, |x| x.size.len());
@@ -286,10 +287,42 @@ pub fn long_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOp
     }
 }
 
-pub fn short_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+fn group_long_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
+    let fmt_entries = to_format_entries(entries, opts);
+    let nlinks_width = max_len(&fmt_entries, |x| x.nlinks.len());
+    let size_width = max_len(&fmt_entries, |x| x.size.len());
+    let group_width = max_len(&fmt_entries, |x| x.group.len());
+    let timestamp_width = max_len(&fmt_entries, |x| x.timestamp.len());
+
+    print_dir_header_if_needed(root, opts);
+
+    for file in fmt_entries {
+        println!("{} {:>nwidth$} {:<gwidth$} {:>swidth$} {:<twidth$} {}",
+                file.permissions,
+                file.nlinks,
+                file.group,
+                file.size,
+                file.timestamp,
+                color_file_name(file.file_name, file.file_type, &opts.color),
+                nwidth = nlinks_width,
+                swidth = size_width,
+                gwidth = group_width,
+                twidth = timestamp_width);
+    }
+}
+
+fn short_form(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) -> () {
     print_dir_header_if_needed(root, opts);
 
     for file in to_format_entries(entries, opts) {
         println!("{}", color_file_name(file.file_name, file.file_type, &opts.color));
+    }
+}
+
+pub fn print_entries(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::LsOptions) {
+    match opts.output_format {
+        OutputFormat::Long => long_form(root, &entries, &opts),
+        OutputFormat::GroupLong => group_long_form(root, &entries, &opts),
+        OutputFormat::Short => short_form(root, &entries, &opts)
     }
 }

@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 
 use cli::{LsOptions, OutputFilter};
-use format::{FsEntry, OutputFormat};
+use format::{FsEntry};
 use format;
 
 fn is_hidden(entry: &FsEntry) -> bool {
@@ -54,10 +54,7 @@ fn to_fs_entries(dir: &FsEntry, dir_entries: &Vec<fs::DirEntry>, opts: &LsOption
 }
 
 fn ls_print_entries(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &LsOptions) -> io::Result<u8> {
-    match opts.output_format {
-        OutputFormat::Long => format::long_form(root, &entries, &opts),
-        OutputFormat::Short => format::short_form(root, &entries, &opts),
-    }
+    format::print_entries(root, &entries, &opts);
 
     Ok(0)
 }

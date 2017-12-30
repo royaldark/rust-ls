@@ -35,6 +35,9 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
         .arg(Arg::with_name("DIR_NAME_ONLY")
             .short("d")
             .help("Sets a custom config file"))
+        .arg(Arg::with_name("GROUP_LONG")
+            .short("g")
+            .help("Sets a custom config file"))
         .arg(Arg::with_name("HUMAN_SIZES")
             .short("h")
             .help("Sets a custom config file"))
@@ -63,7 +66,9 @@ pub fn parse_cli() -> LsOptions {
         paths: paths,
         show_dir_headers: num_paths > 1,
         list_dir_contents: !matches.is_present("DIR_NAME_ONLY"),
-        output_format: if matches.is_present("LONG") {
+        output_format: if matches.is_present("GROUP_LONG") {
+            format::OutputFormat::GroupLong
+        } else if matches.is_present("LONG") {
             format::OutputFormat::Long
         } else {
             format::OutputFormat::Short
