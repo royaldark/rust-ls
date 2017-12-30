@@ -28,26 +28,30 @@ fn parse_opts<'a>() -> ArgMatches<'a> {
         .about("you know, it's ls")
         .arg(Arg::with_name("ALL")
             .short("a")
-            .help("Sets a custom config file"))
+            .help("Show all files, including hidden files"))
         .arg(Arg::with_name("ALMOST_ALL")
             .short("A")
-            .help("Sets a custom config file"))
+            .help("Like -a, but excludes . and .."))
         .arg(Arg::with_name("DIR_NAME_ONLY")
             .short("d")
-            .help("Sets a custom config file"))
+            .help("Show directories themselves, not their contents"))
         .arg(Arg::with_name("GROUP_LONG")
             .short("g")
-            .help("Sets a custom config file"))
+            .help("Like -l, but only shows group, not owner"))
         .arg(Arg::with_name("HUMAN_SIZES")
             .short("h")
-            .help("Sets a custom config file"))
+            .help("Use human-readable sizes based on kibibytes (1024 bytes)"))
         .arg(Arg::with_name("LONG")
             .short("l")
-            .help("Sets a custom config file"))
+            .help("Long form output"))
         .arg(Arg::with_name("COLOR")
             .long("color")
             .default_value("always")
-            .help("Sets a custom config file"))
+            .possible_values(&["always", "never", "auto"])
+            .help("Color options"))
+        .arg(Arg::with_name("SI_SIZES")
+            .long("si")
+            .help("Like -h, but uses SI sizes (1000 bytes)"))
         .arg(Arg::with_name("PATHS")
             .help("Sets the input file to use")
             .multiple(true)
@@ -73,7 +77,9 @@ pub fn parse_cli() -> LsOptions {
         } else {
             format::OutputFormat::Short
         },
-        size_format: if matches.is_present("HUMAN_SIZES") {
+        size_format: if matches.is_present("SI_SIZES") {
+            format::SizeFormat::HumanSI
+        } else if matches.is_present("HUMAN_SIZES") {
             format::SizeFormat::Human
         } else {
             format::SizeFormat::Machine

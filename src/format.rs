@@ -48,8 +48,9 @@ pub enum OutputFormat {
 
 #[derive(Debug)]
 pub enum SizeFormat {
-    Machine,
-    Human
+    Machine, // Raw bytes
+    Human,   // 1024-byte human-readable representation
+    HumanSI  // 1000-byte human-readable representation
 }
 
 #[derive(Debug)]
@@ -61,11 +62,19 @@ pub enum ColorOption {
 
 #[derive(Copy, Clone)]
 enum SizeUnit {
+    // kibibytes
     K = 1024,
     M = 1024 * 1024,
     G = 1024 * 1024 * 1024,
     T = 1024 * 1024 * 1024 * 1024,
-    P = 1024 * 1024 * 1024 * 1024 * 1024
+    P = 1024 * 1024 * 1024 * 1024 * 1024,
+
+    // kilobytes
+    k = 1000,
+    m = 1000 * 1000,
+    g = 1000 * 1000 * 1000,
+    t = 1000 * 1000 * 1000 * 1000,
+    p = 1000 * 1000 * 1000 * 1000 * 1000
 }
 
 fn extract_bits_from_right(value: u32, start_pos: u32, end_pos: u32) -> u32 {
@@ -136,7 +145,7 @@ fn human_size_string_for(len: u64, unit: SizeUnit, label: &str) -> String {
         precision = precision)
 }
 
-fn human_size_string(len: u64) -> String {
+fn humanize(len: u64) -> String {
     if len < SizeUnit::K as u64 {
         format!("{}", len)
     } else if len < SizeUnit::M as u64 {
@@ -152,10 +161,27 @@ fn human_size_string(len: u64) -> String {
     }
 }
 
+fn humanize_si(len: u64) -> String {
+    if len < SizeUnit::k as u64 {
+        format!("{}", len)
+    } else if len < SizeUnit::m as u64 {
+        human_size_string_for(len, SizeUnit::k, "k")
+    } else if len < SizeUnit::g as u64 {
+        human_size_string_for(len, SizeUnit::m, "m")
+    } else if len < SizeUnit::t as u64 {
+        human_size_string_for(len, SizeUnit::g, "g")
+    } else if len < SizeUnit::p as u64 {
+        human_size_string_for(len, SizeUnit::t, "t")
+    } else {
+        human_size_string_for(len, SizeUnit::p, "p")
+    }
+}
+
 fn size_string(len: u64, opts: &cli::LsOptions) -> String {
     match opts.size_format {
         SizeFormat::Machine => format!("{}", len),
-        SizeFormat::Human => human_size_string(len)
+        SizeFormat::Human => humanize(len),
+        SizeFormat::HumanSI => humanize_si(len)
     }
 }
 
