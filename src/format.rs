@@ -61,6 +61,7 @@ pub enum ColorOption {
 }
 
 #[derive(Copy, Clone)]
+#[allow(non_camel_case_types)]
 enum SizeUnit {
     // kibibytes
     K = 1024,
@@ -350,5 +351,52 @@ pub fn print_entries(root: Option<FsEntry>, entries: &Vec<FsEntry>, opts: &cli::
         OutputFormat::Long => long_form(root, &entries, &opts),
         OutputFormat::GroupLong => group_long_form(root, &entries, &opts),
         OutputFormat::Short => short_form(root, &entries, &opts)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_humanize() {
+        assert_eq!(humanize(0), "0");
+        assert_eq!(humanize(1), "1");
+        assert_eq!(humanize(50), "50");
+        assert_eq!(humanize(999), "999");
+        assert_eq!(humanize(1000), "1000");
+        assert_eq!(humanize(1001), "1001");
+        assert_eq!(humanize(SizeUnit::K as u64), "1.0K");
+        assert_eq!(humanize(1 + SizeUnit::K as u64), "1.1K");
+        assert_eq!(humanize(2 * SizeUnit::K as u64), "2.0K");
+        assert_eq!(humanize(20 * SizeUnit::K as u64), "20K");
+        assert_eq!(humanize(SizeUnit::M as u64), "1.0M");
+        assert_eq!(humanize(1 + SizeUnit::M as u64), "1.1M");
+        assert_eq!(humanize(SizeUnit::G as u64), "1.0G");
+        assert_eq!(humanize(1 + SizeUnit::G as u64), "1.1G");
+        assert_eq!(humanize(SizeUnit::T as u64), "1.0T");
+        assert_eq!(humanize(1 + SizeUnit::T as u64), "1.1T");
+        assert_eq!(humanize(SizeUnit::P as u64), "1.0P");
+        assert_eq!(humanize(1 + SizeUnit::P as u64), "1.1P");
+    }
+
+    #[test]
+    fn test_humanize_si() {
+        assert_eq!(humanize_si(0), "0");
+        assert_eq!(humanize_si(1), "1");
+        assert_eq!(humanize_si(50), "50");
+        assert_eq!(humanize_si(999), "999");
+        assert_eq!(humanize_si(SizeUnit::k as u64), "1.0k");
+        assert_eq!(humanize_si(1 + SizeUnit::k as u64), "1.1k");
+        assert_eq!(humanize_si(2 * SizeUnit::k as u64), "2.0k");
+        assert_eq!(humanize_si(20 * SizeUnit::k as u64), "20k");
+        assert_eq!(humanize_si(SizeUnit::m as u64), "1.0m");
+        assert_eq!(humanize_si(1 + SizeUnit::m as u64), "1.1m");
+        assert_eq!(humanize_si(SizeUnit::g as u64), "1.0g");
+        assert_eq!(humanize_si(1 + SizeUnit::g as u64), "1.1g");
+        assert_eq!(humanize_si(SizeUnit::t as u64), "1.0t");
+        assert_eq!(humanize_si(1 + SizeUnit::t as u64), "1.1t");
+        assert_eq!(humanize_si(SizeUnit::p as u64), "1.0p");
+        assert_eq!(humanize_si(1 + SizeUnit::p as u64), "1.1p");
     }
 }
